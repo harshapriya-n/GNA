@@ -22,9 +22,9 @@ and approved by Intel in writing.
 #ifndef AVSLOGGER_ILOGGER_H_
 #define AVSLOGGER_ILOGGER_H_
 
-#include <cstdarg>
+#include "cstdarg"
 
-#include "ILogger/LogLevel.h"
+#include "LogLevel.h"
 
 #define LOG_C_ERROR(...) if (nullptr != this->logger_) { this->logger_->WriteMessage(this->logger_->handle_, AVSLOGGER_LEVEL_ERROR, __VA_ARGS__); };
 #define LOG_C_WARNING(...) if (nullptr != this->logger_) { this->logger_->WriteMessage(this->logger_->handle_, AVSLOGGER_LEVEL_WARNING, __VA_ARGS__); };

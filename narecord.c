@@ -36,6 +36,9 @@
 #include <endian.h>
 #include <byteswap.h>
 
+#include <memory.h>
+#include "IntelSSTPreprocStreamer/include/IntelSstPPGeneric.h"
+
 /* Definitions for Microsoft WAVE format */
 
 #if __BYTE_ORDER == __LITTLE_ENDIAN
