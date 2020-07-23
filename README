@@ -7,7 +7,12 @@ Task#1: Record from DMIC
 	- Run: './narecord' to dmic stream captured file n.wav
 
 Task#2: Input buffer to the library preprocstreamer.so & Link binaries
-	- TBD
+	- IntelSstPreProcProcess takes instance handle, input buffer descriptor,
+		pointer to buffer for output sample
+	- Copy the 'narecord' along with libIntelSSTPreprocStreamer.so library
+		 to path & export LD_LIBRARY_PATH
+	- Running narecord now, will generate n.wav with dmic capture & pass
+		stream to algorithm
 
 Task#3: Receive the noise cancelled buffer and write them to a file
 	- TBD

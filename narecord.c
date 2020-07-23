@@ -230,6 +230,9 @@ int main()
     return 0;
 }
 
+IntelSstInput input;
+u_char *output_buffer;
+
 int run(char *filename)
 {
 	char *pcm_name = "default";
@@ -284,6 +287,14 @@ int run(char *filename)
 
 	audiobuf = (u_char *)malloc(1024);
 	if (audiobuf == NULL) {
+		error(_("not enough memory"));
+		return 1;
+	}
+
+	input.multiplexed_data_ = audiobuf;
+
+	output_buffer = (u_char *)malloc(1024);
+	if (output_buffer == NULL) {
 		error(_("not enough memory"));
 		return 1;
 	}
@@ -1047,7 +1058,9 @@ static void capture(char *orig_name)
 			size_t f = c * 8 / bits_per_frame;
 			if (pcm_read(audiobuf, f) != f)
 				break;
+			/* send captured stream to noise_cancellation algo. */
 			if (write(fd, audiobuf, c) != c) {
+				IntelSstPreProcProcess(handle, &input, output_buffer);
 				perror(name);
 				exit(EXIT_FAILURE);
 			}
