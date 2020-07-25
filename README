@@ -15,4 +15,8 @@ Task#2: Input buffer to the library preprocstreamer.so & Link binaries
 		stream to algorithm
 
 Task#3: Receive the noise cancelled buffer and write them to a file
-	- TBD
+	- Copy the contents of output_buffer from IntelSstPreProcProcess to
+		another .wav file
+	- Running narecord now, should generate n.wav with dmic capture stream,
+		pass stream to algorithm and dump output of algorithm to
+		final noiseless output file - algo_output.wav

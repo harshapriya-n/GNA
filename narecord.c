@@ -152,7 +152,7 @@ static size_t bits_per_sample, bits_per_frame;
 static size_t chunk_bytes;
 static snd_output_t *log;
 
-static int fd = -1;
+static int fd, fd_algo_out = -1;
 static off64_t pbrec_count = LLONG_MAX, fdcount;
 static int vocmajor, vocminor;
 
@@ -1039,6 +1039,10 @@ static void capture(char *orig_name)
 				perror(name);
 				exit(EXIT_FAILURE);
 			}
+			if ((fd_algo_out = open64("algo_output.wav", O_WRONLY | O_CREAT, 0644)) == -1) {
+				perror(name);
+				exit(EXIT_FAILURE);
+			}
 			filecount++;
 		}
 
@@ -1047,8 +1051,10 @@ static void capture(char *orig_name)
 			rest = fmt_rec_table[file_type].max_filesize;
 
 		/* setup sample header */
-		if (fmt_rec_table[file_type].start)
+		if (fmt_rec_table[file_type].start) {
 			fmt_rec_table[file_type].start(fd, rest);
+			fmt_rec_table[file_type].start(fd_algo_out, rest);
+		}
 
 		/* capture */
 		fdcount = 0;
@@ -1064,6 +1070,15 @@ static void capture(char *orig_name)
 				perror(name);
 				exit(EXIT_FAILURE);
 			}
+
+			if (pcm_read(output_buffer, f) != f)
+				break;
+			/* write noise_cancellation algo. output to file */
+			if (write(fd_algo_out, output_buffer, c) != c) {
+				perror(name);
+				exit(EXIT_FAILURE);
+			}
+
 			count -= c;
 			rest -= c;
 			fdcount += c;
@@ -1072,7 +1087,8 @@ static void capture(char *orig_name)
 		/* finish sample container */
 		if (fmt_rec_table[file_type].end && !tostdout) {
 			fmt_rec_table[file_type].end(fd);
-			fd = -1;
+			fmt_rec_table[file_type].end(fd_algo_out);
+			fd, fd_algo_out = -1;
 		}
 
 		/* repeat the loop when format is raw without timelimit or
