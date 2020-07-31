@@ -990,6 +990,9 @@ static int new_capture_file(char *name, char *namebuf, size_t namelen,
 	return filecount;
 }
 
+static void* sst_handle = NULL;
+
+#define BLOB_SIZE	1
 static void capture(char *orig_name)
 {
 	int tostdout=0;		/* boolean which describes output stream */
@@ -997,6 +1000,24 @@ static void capture(char *orig_name)
 	char *name = orig_name;	/* current filename */
 	char namebuf[PATH_MAX+1];
 	off64_t count, rest;		/* number of bytes to capture */
+	// blob is the binary configuration data read from tuning file provided
+	char blob[BLOB_SIZE] = {0};
+	int ret = 0;
+
+	const IntelSstAudioFormat formatpp_mono =
+		{.frame_rate_ = 16000,
+		 .sample_bit_depth_ = 16,
+		 .sample_container_bits_ = 16,
+		 .channel_count_ = 1,
+		 .sample_type_ = INTEL_SST_SAMPLE_PCM,
+		};
+	const IntelSstAudioFormat formatpp_stereo =
+		{.frame_rate_ = 16000,
+		 .sample_bit_depth_ = 16,
+		 .sample_container_bits_ = 16,
+		 .channel_count_ = 2,
+		 .sample_type_ = INTEL_SST_SAMPLE_PCM,
+		};
 
 	/* get number of bytes to capture */
 	count = calc_count();
@@ -1012,6 +1033,23 @@ static void capture(char *orig_name)
 	printf("Recording to: %s\n", name);
 	/* setup sound hardware */
 	set_params();
+
+	IntelSstBasicConfiguration configuration =
+	{
+	    NULL,		       // input_format_
+	    NULL,		       // loopback_format_
+	    &formatpp_stereo,	       // multiplexed_format_
+	    &formatpp_mono,	       // output_format_
+	    formatpp_stereo.channel_count_, // input_channel_count_
+	    1,			       // processing_chunk_10ms_
+	    1			       // processing_enabled_
+	};
+
+	ret = IntelSstPreProcInitialize(&sst_handle, &configuration);
+	printf("IntelSstPreProcInitialize ret = %d\n", ret);
+
+	ret = IntelSstPreProcSetConfig(sst_handle, blob, BLOB_SIZE);
+	printf("IntelSstPreProcSetConfig ret = %d\n", ret);
 
 	/* write to stdout? */
 	if (!name || !strcmp(name, "-")) {
@@ -1062,17 +1100,21 @@ static void capture(char *orig_name)
 			size_t c = (rest <= (off64_t)chunk_bytes) ?
 				(size_t)rest : chunk_bytes;
 			size_t f = c * 8 / bits_per_frame;
+
 			if (pcm_read(audiobuf, f) != f)
 				break;
 			/* send captured stream to noise_cancellation algo. */
 			if (write(fd, audiobuf, c) != c) {
-				IntelSstPreProcProcess(handle, &input, output_buffer);
 				perror(name);
 				exit(EXIT_FAILURE);
 			}
 
+			ret = IntelSstPreProcProcess(sst_handle, &input, output_buffer);
+			printf("IntelSstPreProcProcess ret = %d \n", ret);
+
 			if (pcm_read(output_buffer, f) != f)
 				break;
+
 			/* write noise_cancellation algo. output to file */
 			if (write(fd_algo_out, output_buffer, c) != c) {
 				perror(name);
@@ -1095,4 +1137,7 @@ static void capture(char *orig_name)
 		 * requested counts of data are recorded
 		 */
 	} while ((file_type == FORMAT_RAW && !timelimit) || count > 0);
+
+	ret = IntelSstPreProcRelease(sst_handle);
+	printf("IntelSstPreProcRelease ret = %d \n", ret);
 }
