@@ -992,7 +992,9 @@ static int new_capture_file(char *name, char *namebuf, size_t namelen,
 
 static void* sst_handle = NULL;
 
-#define BLOB_SIZE	1
+// BLOB is the binary configuration data read from tuning file provided
+#define BLOB	"IntelSSTPreprocStreamer/lib/aec_asr_str_def_2ch_in_gna.tf"
+
 static void capture(char *orig_name)
 {
 	int tostdout=0;		/* boolean which describes output stream */
@@ -1000,9 +1002,28 @@ static void capture(char *orig_name)
 	char *name = orig_name;	/* current filename */
 	char namebuf[PATH_MAX+1];
 	off64_t count, rest;		/* number of bytes to capture */
-	// blob is the binary configuration data read from tuning file provided
-	char blob[BLOB_SIZE] = {0};
 	int ret = 0;
+	FILE *fptr = NULL;
+	long blobsize;
+	char *blob_buffer;
+
+	if((fptr = fopen(BLOB, "rb")) == NULL ) {
+		perror("Error while opening the file.\n");
+		exit(EXIT_FAILURE);
+	}
+
+	fseek(fptr, 0, SEEK_END);
+	blobsize = ftell(fptr);
+	rewind(fptr);
+
+	blob_buffer = (char *) malloc(sizeof(char) * blobsize+1);
+
+	if (fread(blob_buffer, sizeof(char), blobsize, fptr) != blobsize) {
+		fprintf(stderr, "Error reading file\n");
+		return EXIT_FAILURE;
+	}
+
+	blob_buffer[blobsize] = '\0';
 
 	const IntelSstAudioFormat formatpp_mono =
 		{.frame_rate_ = 16000,
@@ -1048,7 +1069,7 @@ static void capture(char *orig_name)
 	ret = IntelSstPreProcInitialize(&sst_handle, &configuration);
 	printf("IntelSstPreProcInitialize ret = %d\n", ret);
 
-	ret = IntelSstPreProcSetConfig(sst_handle, blob, BLOB_SIZE);
+	ret = IntelSstPreProcSetConfig(sst_handle, blob_buffer, blobsize);
 	printf("IntelSstPreProcSetConfig ret = %d\n", ret);
 
 	/* write to stdout? */
@@ -1140,4 +1161,6 @@ static void capture(char *orig_name)
 
 	ret = IntelSstPreProcRelease(sst_handle);
 	printf("IntelSstPreProcRelease ret = %d \n", ret);
+
+	free(blob_buffer);
 }
