@@ -992,6 +992,26 @@ static int new_capture_file(char *name, char *namebuf, size_t namelen,
 
 static void* sst_handle = NULL;
 
+// Enable Logging
+void WriteMessageVA(const ILoggerHandle logger, AvsLoggerLogLevel level,
+			const char* format, va_list args) {
+	vprintf(format, args);
+}
+
+void WriteMessage(const ILoggerHandle logger, AvsLoggerLogLevel level,
+			const char* format, ...) {
+	va_list args;
+	va_start(args, format);
+	WriteMessageVA(logger, level, format, args);
+	va_end(args);
+}
+
+ICLogger iclogger = {
+	NULL,
+	WriteMessage,
+	WriteMessageVA
+};
+
 // BLOB is the binary configuration data read from tuning file provided
 #define BLOB	"IntelSSTPreprocStreamer/lib/aec_asr_str_def_2ch_in_gna.tf"
 
@@ -1068,6 +1088,9 @@ static void capture(char *orig_name)
 
 	ret = IntelSstPreProcInitialize(&sst_handle, &configuration);
 	printf("IntelSstPreProcInitialize ret = %d\n", ret);
+
+	ret = IntelSstPreProcInitializeWithLog(&sst_handle, &configuration, &iclogger);
+	printf("IntelSstPreProcInitializeWithLog ret = %d\n", ret);
 
 	ret = IntelSstPreProcSetConfig(sst_handle, blob_buffer, blobsize);
 	printf("IntelSstPreProcSetConfig ret = %d\n", ret);
