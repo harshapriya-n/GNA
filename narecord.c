@@ -224,6 +224,8 @@ enum {
 	OPT_TEST_POSITION
 };
 
+int run(char *filename);
+
 int main()
 {
     run("n.wav");
@@ -992,10 +994,20 @@ static int new_capture_file(char *name, char *namebuf, size_t namelen,
 
 static void* sst_handle = NULL;
 
+const char* logLevel[AVSLOGGER_LEVEL_MAX_LEVEL + 1] = {
+ " NONE",
+ "ERROR",
+ " WARN",
+ " INFO",
+ "DEBUG"
+};
+
 // Enable Logging
 void WriteMessageVA(const ILoggerHandle logger, AvsLoggerLogLevel level,
 			const char* format, va_list args) {
+	printf("%s: ", logLevel[level]);
 	vprintf(format, args);
+	printf("\n");
 }
 
 void WriteMessage(const ILoggerHandle logger, AvsLoggerLogLevel level,
@@ -1040,7 +1052,7 @@ static void capture(char *orig_name)
 
 	if (fread(blob_buffer, sizeof(char), blobsize, fptr) != blobsize) {
 		fprintf(stderr, "Error reading file\n");
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 
 	blob_buffer[blobsize] = '\0';
@@ -1086,12 +1098,13 @@ static void capture(char *orig_name)
 	    1			       // processing_enabled_
 	};
 
+#if 0
 	ret = IntelSstPreProcInitialize(&sst_handle, &configuration);
 	printf("IntelSstPreProcInitialize ret = %d\n", ret);
-
+#else
 	ret = IntelSstPreProcInitializeWithLog(&sst_handle, &configuration, &iclogger);
 	printf("IntelSstPreProcInitializeWithLog ret = %d\n", ret);
-
+#endif
 	ret = IntelSstPreProcSetConfig(sst_handle, blob_buffer, blobsize);
 	printf("IntelSstPreProcSetConfig ret = %d\n", ret);
 
@@ -1156,14 +1169,21 @@ static void capture(char *orig_name)
 			ret = IntelSstPreProcProcess(sst_handle, &input, output_buffer);
 			printf("IntelSstPreProcProcess ret = %d \n", ret);
 
-			if (pcm_read(output_buffer, f) != f)
-				break;
+			// at this point output_buffer contains processed data
+			// calling pcm_read will overwrite this data with the new chunk from PCM device
+			// if for some reason pcm_read needs to be invoked more than once for each loop iteration I moved it after the file write
+			//if (pcm_read(output_buffer, f) != f)
+			//	break;
 
 			/* write noise_cancellation algo. output to file */
 			if (write(fd_algo_out, output_buffer, c) != c) {
 				perror(name);
 				exit(EXIT_FAILURE);
 			}
+
+			// moved from above
+			if (pcm_read(output_buffer, f) != f)
+				break;
 
 			count -= c;
 			rest -= c;
