@@ -11,6 +11,7 @@
  */
 
 #define _GNU_SOURCE
+#include <stdint.h>
 #include <stdio.h>
 #include <malloc.h>
 #include <unistd.h>
@@ -1166,8 +1167,12 @@ static void capture(char *orig_name)
 				exit(EXIT_FAILURE);
 			}
 
+			printf("output_buffer[0] before process: %hd\n", ((int16_t*)output_buffer)[0]);
+
 			ret = IntelSstPreProcProcess(sst_handle, &input, output_buffer);
 			printf("IntelSstPreProcProcess ret = %d \n", ret);
+
+			printf("output_buffer[0] after process: %hd\n", ((int16_t*)output_buffer)[0]);
 
 			// at this point output_buffer contains processed data
 			// calling pcm_read will overwrite this data with the new chunk from PCM device
