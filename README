@@ -1,0 +1,13 @@
+Microphone input processing into PreprocStreamerOfflineTool
+------------------------------------------------------------
+
+Task#1: Record from DMIC
+	- Build 'make' to generate 'narecord' utility
+	- Copy 'narecord' to /root/ path in DUT and 'chmod 777 narecord'
+	- Run: './narecord' to dmic stream captured file n.wav
+
+Task#2: Input buffer to the library preprocstreamer.so & Link binaries
+	- TBD
+
+Task#3: Receive the noise cancelled buffer and write them to a file
+	- TBD
