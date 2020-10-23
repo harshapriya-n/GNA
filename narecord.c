@@ -262,8 +262,8 @@ int run(char *filename)
 
 	// cdr:
 	// rhwparams.format = SND_PCM_FORMAT_S16_BE;
-	rhwparams.format = file_type == FORMAT_AU ? SND_PCM_FORMAT_S16_BE : SND_PCM_FORMAT_S16_LE;
-	rhwparams.rate = 44100;
+	rhwparams.format = SND_PCM_FORMAT_S16_LE;
+	rhwparams.rate = 16000;
 	rhwparams.channels = 2;
 
 	err = snd_pcm_open(&handle, pcm_name, stream, open_mode);
@@ -288,7 +288,7 @@ int run(char *filename)
 	chunk_size = 1024;
 	hwparams = rhwparams;
 
-	audiobuf = (u_char *)malloc(1024);
+	audiobuf = (u_char *)malloc(640);
 	if (audiobuf == NULL) {
 		error(_("not enough memory"));
 		return 1;
@@ -296,7 +296,7 @@ int run(char *filename)
 
 	input.multiplexed_data_ = audiobuf;
 
-	output_buffer = (u_char *)malloc(1024);
+	output_buffer = (u_char *)malloc(640);
 	if (output_buffer == NULL) {
 		error(_("not enough memory"));
 		return 1;
@@ -396,7 +396,8 @@ static void set_params(void)
 		else
 			period_frames = buffer_frames / 4;
 	}
-
+	period_time = 0;
+	period_frames = 160;
 	if (period_time > 0)
 		err = snd_pcm_hw_params_set_period_time_near(handle, params,
 							     &period_time, 0);
@@ -405,7 +406,8 @@ static void set_params(void)
 							     &period_frames, 0);
 
 	assert(err >= 0);
-
+	buffer_time = 0;
+	buffer_frames = 640;
 	if (buffer_time > 0) {
 		err = snd_pcm_hw_params_set_buffer_time_near(handle, params,
 							     &buffer_time, 0);
@@ -426,7 +428,10 @@ static void set_params(void)
 
 	snd_pcm_hw_params_get_period_size(params, &chunk_size, 0);
 	snd_pcm_hw_params_get_buffer_size(params, &buffer_size);
-
+	
+	error(_("*************** harsha period , buffer size (%lu == %lu)"),
+		      chunk_size, buffer_size);
+	
 	if (chunk_size == buffer_size) {
 		error(_("Can't use period equal to buffer size (%lu == %lu)"),
 		      chunk_size, buffer_size);
@@ -481,6 +486,7 @@ static void set_params(void)
 	bits_per_sample = snd_pcm_format_physical_width(hwparams.format);
 	bits_per_frame = bits_per_sample * hwparams.channels;
 	chunk_bytes = chunk_size * bits_per_frame / 8;
+	error(_("******** harsha bitspersample, bitsperframe, chunkbytes: %d %d %d"), bits_per_sample,bits_per_frame,chunk_bytes);
 	audiobuf = realloc(audiobuf, chunk_bytes);
 
 	if (audiobuf == NULL) {
@@ -1026,7 +1032,7 @@ ICLogger iclogger = {
 };
 
 // BLOB is the binary configuration data read from tuning file provided
-#define BLOB	"IntelSSTPreprocStreamer/lib/aec_asr_str_def_2ch_in_gna.tf"
+#define BLOB	"aec_asr_str_def_2ch_in_gna.tf"
 
 static void capture(char *orig_name)
 {
@@ -1099,13 +1105,8 @@ static void capture(char *orig_name)
 	    1			       // processing_enabled_
 	};
 
-#if 0
-	ret = IntelSstPreProcInitialize(&sst_handle, &configuration);
-	printf("IntelSstPreProcInitialize ret = %d\n", ret);
-#else
 	ret = IntelSstPreProcInitializeWithLog(&sst_handle, &configuration, &iclogger);
 	printf("IntelSstPreProcInitializeWithLog ret = %d\n", ret);
-#endif
 	ret = IntelSstPreProcSetConfig(sst_handle, blob_buffer, blobsize);
 	printf("IntelSstPreProcSetConfig ret = %d\n", ret);
 
@@ -1157,8 +1158,10 @@ static void capture(char *orig_name)
 		while (rest > 0) {
 			size_t c = (rest <= (off64_t)chunk_bytes) ?
 				(size_t)rest : chunk_bytes;
+			c = 640;
 			size_t f = c * 8 / bits_per_frame;
 
+			memset(output_buffer, 0, 640);
 			if (pcm_read(audiobuf, f) != f)
 				break;
 			/* send captured stream to noise_cancellation algo. */
@@ -1167,12 +1170,12 @@ static void capture(char *orig_name)
 				exit(EXIT_FAILURE);
 			}
 
-			printf("output_buffer[0] before process: %hd\n", ((int16_t*)output_buffer)[0]);
+//			printf("output_buffer[0] before process: %hd\n", ((int16_t*)output_buffer)[0]);
 
 			ret = IntelSstPreProcProcess(sst_handle, &input, output_buffer);
-			printf("IntelSstPreProcProcess ret = %d \n", ret);
-
-			printf("output_buffer[0] after process: %hd\n", ((int16_t*)output_buffer)[0]);
+//			printf("IntelSstPreProcProcess ret = %d \n", ret);
+//
+//			printf("output_buffer[0] after process: %hd\n", ((int16_t*)output_buffer)[0]);
 
 			// at this point output_buffer contains processed data
 			// calling pcm_read will overwrite this data with the new chunk from PCM device
@@ -1185,10 +1188,10 @@ static void capture(char *orig_name)
 				perror(name);
 				exit(EXIT_FAILURE);
 			}
-
+			
 			// moved from above
-			if (pcm_read(output_buffer, f) != f)
-				break;
+//			if (pcm_read(output_buffer, f) != f)
+//				break;
 
 			count -= c;
 			rest -= c;
